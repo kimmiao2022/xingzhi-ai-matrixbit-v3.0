@@ -800,6 +800,52 @@ void LcdDisplay::SetPreviewImage(const lv_img_dsc_t* img_dsc) {
     }
 }
 
+
+void LcdDisplay::SetSDcardText(const char* text) {
+}
+
+void LcdDisplay::Hide(void) {
+}
+
+void LcdDisplay::Show(void) {
+}
+
+void LcdDisplay::HideImage(void) {
+}
+
+void LcdDisplay::ShowImage(void) {
+}
+
+void LcdDisplay::Settext(const char* text,lv_align_t align, int32_t x_ofs, int32_t y_ofs) {
+}
+void LcdDisplay::Settext1(const char* text,lv_align_t align, int32_t x_ofs, int32_t y_ofs) {
+}
+void LcdDisplay::Settext2(const char* text,lv_align_t align, int32_t x_ofs, int32_t y_ofs) {
+}
+void LcdDisplay::Settext3(const char* text,lv_align_t align, int32_t x_ofs, int32_t y_ofs) {
+}
+void LcdDisplay::Settext4(const char* text,lv_align_t align, int32_t x_ofs, int32_t y_ofs) {
+}
+void LcdDisplay::Settext5(const char* text,lv_align_t align, int32_t x_ofs, int32_t y_ofs) {
+}
+void LcdDisplay::Settext6(const char* text,lv_align_t align, int32_t x_ofs, int32_t y_ofs) {
+}
+void LcdDisplay::Settext7(const char* text,lv_align_t align, int32_t x_ofs, int32_t y_ofs) {
+}
+void LcdDisplay::Settext8(const char* text,lv_align_t align, int32_t x_ofs, int32_t y_ofs) {
+}
+void LcdDisplay::Settext9(const char* text,lv_align_t align, int32_t x_ofs, int32_t y_ofs) {
+}
+void LcdDisplay::Settext10(const char* text,lv_align_t align, int32_t x_ofs, int32_t y_ofs) {
+}
+void LcdDisplay::Settext11(const char* text,lv_align_t align, int32_t x_ofs, int32_t y_ofs) {
+}
+void LcdDisplay::Settext12(const char* text,lv_align_t align, int32_t x_ofs, int32_t y_ofs) {
+}
+void LcdDisplay::ShowSdImage(const char* img_path) {
+}
+
+
 void LcdDisplay::SetTheme(const std::string& theme_name) {
     DisplayLockGuard lock(this);
     

@@ -1,4 +1,4 @@
-    #include "dual_network_board.h"
+
     #include "wifi_board.h"
     #include "audio_codecs/es8311_audio_codec.h"
     #include "display/lcd_display.h"
@@ -31,76 +31,213 @@
 
     #include "uartcmdsend.h"
 
-
+    #include "board.h"  // 确保包含Board类的头文件
     #include "esp_vfs_fat.h"
     #include <string.h>
     #include <sys/unistd.h>
     #include <sys/stat.h>
+    #include <stdint.h>  // 添加这行，用于 PRIu32 宏   
     #include "esp_private/sdmmc_common.h"
 
+    // 定义缓存大小（可根据内存调整，32KB比较均衡）
 
     #define TAG "XINGZHI_CUBE_1_54_TFT_MATRIXBIT_ML307"
+
+    #define SD_READ_CACHE_SIZE (32 * 1024)
+    // 每个文件句柄对应的缓存结构
+    typedef struct {
+        FILE* fp;                // 真实文件指针
+        uint8_t buffer[SD_READ_CACHE_SIZE];
+        size_t len;              // 缓存中有效字节数
+        size_t pos;              // 当前读取位置
+    } sd_file_cache_t;   
 
     LV_FONT_DECLARE(font_puhui_20_4);
     LV_FONT_DECLARE(font_awesome_20_4);
     LV_FONT_DECLARE(font_puhui_14_1);
     LV_FONT_DECLARE(font_awesome_14_1);
+
     class CustomLcdDisplay : public SpiLcdDisplay {
     private:
         lv_obj_t* text_box_container; 
         lv_obj_t* accel_label_; 
+        lv_obj_t* accel_label_1;   
+        lv_obj_t* accel_label_2;
+        lv_obj_t* accel_label_3; 
+        lv_obj_t* accel_label_4; 
+        lv_obj_t* accel_label_5; 
+        lv_obj_t* accel_label_6;   
+        lv_obj_t* accel_label_7; 
+        lv_obj_t* accel_label_8;   
+        lv_obj_t* accel_label_9;
+        lv_obj_t* accel_label_10;  
+        lv_obj_t* accel_label_11;                                                                           
         lv_obj_t* temp_hum_data_label_; 
-        lv_obj_t* sdcard_label_; 
+        lv_obj_t* Text_display;            
+        lv_obj_t* img_obj_ = nullptr;  // LVGL图片对象
         bool is_visible_ = false; // 记录显示状态
 
         void CreateTextBox() {
+            // 创建图片对象
             DisplayLockGuard lock(this);
-            
+            auto screen = lv_screen_active();
+            img_obj_ = lv_img_create(screen);
+            lv_obj_set_size(img_obj_, width_, height_);
+            lv_obj_align(img_obj_, LV_ALIGN_TOP_MID, 0, -5);
+            // 设置默认图片（可选，如“无图片”提示）
+            lv_img_set_src(img_obj_, "E:/no_image.bmp");  // 需确保SD卡根目录有此默认图 //影响刷图
+            lv_obj_set_scrollbar_mode(screen, LV_SCROLLBAR_MODE_OFF);
             // 创建文本框区域容器，改为纵向布局
             auto screen1 = lv_screen_active();
             lv_obj_set_style_text_font(screen1, fonts_.text_font, 0);
             lv_obj_set_style_text_color(screen1, current_theme_.text, 0);
             lv_obj_set_style_bg_color(screen1, current_theme_.background, 0);
 
+            lv_obj_set_scrollbar_mode(screen1, LV_SCROLLBAR_MODE_OFF);
+            
             text_box_container = lv_obj_create(screen1);
-            lv_obj_set_size(text_box_container, width_, height_ * 0.25); // 增加容器高度以容纳三行
+            lv_obj_set_size(text_box_container, width_, height_); // 增加容器高度以容纳三行
             lv_obj_align(text_box_container, LV_ALIGN_BOTTOM_MID, 0, -5);
             lv_obj_set_style_bg_color(text_box_container, current_theme_.chat_background, 0);
             lv_obj_set_style_border_width(text_box_container, 1, 0);
             lv_obj_set_style_border_color(text_box_container, current_theme_.border, 0);
             lv_obj_set_style_radius(text_box_container, 8, 0);
-            lv_obj_set_flex_flow(text_box_container, LV_FLEX_FLOW_COLUMN); // 改为纵向布局
+            // lv_obj_set_flex_flow(text_box_container, LV_FLEX_FLOW_COLUMN); // 改为纵向布局
             lv_obj_set_style_pad_all(text_box_container, 5, 0);
-            lv_obj_set_scrollbar_mode(text_box_container, LV_SCROLLBAR_MODE_OFF);
             lv_obj_add_flag(text_box_container, LV_OBJ_FLAG_HIDDEN);
+             lv_obj_set_scrollbar_mode(text_box_container, LV_SCROLLBAR_MODE_OFF);
 
-            // 创建温湿度数据显示标签 - 第一行
+            //第一行
             temp_hum_data_label_ = lv_label_create(text_box_container);
-            lv_label_set_text(temp_hum_data_label_, "--.--°C --.--%");
+            lv_label_set_text(temp_hum_data_label_, "");
             lv_obj_set_style_text_color(temp_hum_data_label_, current_theme_.text, 0);
-            lv_obj_set_style_text_font(temp_hum_data_label_, &font_puhui_14_1, 0);
+            lv_obj_set_style_text_font(temp_hum_data_label_, &font_puhui_20_4, 0);
             lv_obj_set_width(temp_hum_data_label_, width_ * 0.9); // 占满容器宽度
             lv_obj_align(temp_hum_data_label_, LV_ALIGN_TOP_LEFT, 10, 5); // 顶部左侧
-
-            // 创建加速度数据显示标签 - 第二行
+            lv_obj_set_scrollbar_mode(temp_hum_data_label_, LV_SCROLLBAR_MODE_OFF);
+            lv_label_set_long_mode(temp_hum_data_label_, LV_LABEL_LONG_CLIP);
+            //第二行
             accel_label_ = lv_label_create(text_box_container);
-            lv_label_set_text(accel_label_, "0.00 0.00 0.00");
+            lv_label_set_text(accel_label_, "");
             lv_obj_set_style_text_color(accel_label_, current_theme_.text, 0);
-            lv_obj_set_style_text_font(accel_label_, &font_puhui_14_1, 0);
+            lv_obj_set_style_text_font(accel_label_, &font_puhui_20_4, 0);
             lv_obj_set_width(accel_label_, width_ * 0.9); // 占满容器宽度
-            lv_obj_align(accel_label_, LV_ALIGN_TOP_LEFT, 10, 5); // 顶部左侧，由布局自动排列
+            lv_obj_align(accel_label_, LV_ALIGN_TOP_LEFT, 10, 25); // 顶部左侧，由布局自动排列
+            lv_obj_set_scrollbar_mode(accel_label_, LV_SCROLLBAR_MODE_OFF); 
+            lv_label_set_long_mode(accel_label_, LV_LABEL_LONG_CLIP);
+            //第三行 cmd = 9
+            accel_label_1 = lv_label_create(text_box_container);
+            lv_label_set_text(accel_label_1, "");
+            lv_obj_set_style_text_color(accel_label_1, current_theme_.text, 0);
+            lv_obj_set_style_text_font(accel_label_1, &font_puhui_20_4, 0);
+            lv_obj_set_width(accel_label_1, width_ * 0.9); // 占满容器宽度
+            lv_obj_align(accel_label_1, LV_ALIGN_TOP_LEFT, 10, 5); // 顶部左侧，由布局自动排列
+            lv_obj_set_scrollbar_mode(accel_label_1, LV_SCROLLBAR_MODE_OFF); 
+            lv_label_set_long_mode(accel_label_1, LV_LABEL_LONG_CLIP);
+            lv_label_set_long_mode(accel_label_1, LV_LABEL_LONG_CLIP);
+            //倒数第四行
+            accel_label_2 = lv_label_create(text_box_container);
+            lv_label_set_text(accel_label_2, "");
+            lv_obj_set_style_text_color(accel_label_2, current_theme_.text, 0);
+            lv_obj_set_style_text_font(accel_label_2, &font_puhui_20_4, 0);
+            lv_obj_set_width(accel_label_2, width_ * 0.9); // 占满容器宽度
+            lv_obj_align(accel_label_2, LV_ALIGN_TOP_LEFT, 10, 5); // 顶部左侧，由布局自动排列
+            lv_obj_set_scrollbar_mode(accel_label_2, LV_SCROLLBAR_MODE_OFF);
+            lv_label_set_long_mode(accel_label_2, LV_LABEL_LONG_CLIP);            
+            //倒数第5行
+            accel_label_3 = lv_label_create(text_box_container);
+            lv_label_set_text(accel_label_3, "");
+            lv_obj_set_style_text_color(accel_label_3, current_theme_.text, 0);
+            lv_obj_set_style_text_font(accel_label_3, &font_puhui_20_4, 0);
+            lv_obj_set_width(accel_label_3, width_ * 0.9); // 占满容器宽度
+            lv_obj_align(accel_label_3, LV_ALIGN_TOP_LEFT, 10, 5); // 顶部左侧，由布局自动排列
+            lv_obj_set_scrollbar_mode(accel_label_3, LV_SCROLLBAR_MODE_OFF);   
+            lv_label_set_long_mode(accel_label_3, LV_LABEL_LONG_CLIP); 
 
+            //倒数第6行
+            accel_label_4 = lv_label_create(text_box_container);
+            lv_label_set_text(accel_label_4, "");
+            lv_obj_set_style_text_color(accel_label_4, current_theme_.text, 0);
+            lv_obj_set_style_text_font(accel_label_4, &font_puhui_20_4, 0);
+            lv_obj_set_width(accel_label_4, width_ * 0.9); // 占满容器宽度
+            lv_obj_align(accel_label_4, LV_ALIGN_TOP_LEFT, 10, 5); // 顶部左侧，由布局自动排列
+            lv_obj_set_scrollbar_mode(accel_label_4, LV_SCROLLBAR_MODE_OFF);  
+            lv_label_set_long_mode(accel_label_4, LV_LABEL_LONG_CLIP); 
+            //倒数第7行
+            accel_label_5 = lv_label_create(text_box_container);
+            lv_label_set_text(accel_label_5, "");
+            lv_obj_set_style_text_color(accel_label_5, current_theme_.text, 0);
+            lv_obj_set_style_text_font(accel_label_5, &font_puhui_20_4, 0);
+            lv_obj_set_width(accel_label_5, width_ * 0.9); // 占满容器宽度
+            lv_obj_align(accel_label_5, LV_ALIGN_TOP_LEFT, 10, 5); // 顶部左侧，由布局自动排列
+            lv_obj_set_scrollbar_mode(accel_label_5, LV_SCROLLBAR_MODE_OFF); 
+            lv_label_set_long_mode(accel_label_5, LV_LABEL_LONG_CLIP); 
+            //倒数第8行
+            accel_label_6 = lv_label_create(text_box_container);
+            lv_label_set_text(accel_label_6, "");
+            lv_obj_set_style_text_color(accel_label_6, current_theme_.text, 0);
+            lv_obj_set_style_text_font(accel_label_6, &font_puhui_20_4, 0);
+            lv_obj_set_width(accel_label_6, width_ * 0.9); // 占满容器宽度
+            lv_obj_align(accel_label_6, LV_ALIGN_TOP_LEFT, 10, 5); // 顶部左侧，由布局自动排列
+            lv_obj_set_scrollbar_mode(accel_label_6, LV_SCROLLBAR_MODE_OFF); 
+            lv_label_set_long_mode(accel_label_6, LV_LABEL_LONG_CLIP);
+            //倒数第9行
+            accel_label_7 = lv_label_create(text_box_container);
+            lv_label_set_text(accel_label_7, "");
+            lv_obj_set_style_text_color(accel_label_7, current_theme_.text, 0);
+            lv_obj_set_style_text_font(accel_label_7, &font_puhui_20_4, 0);
+            lv_obj_set_width(accel_label_7, width_ * 0.9); // 占满容器宽度
+            lv_obj_align(accel_label_7, LV_ALIGN_TOP_LEFT, 10, 5); // 顶部左侧，由布局自动排列
+            lv_obj_set_scrollbar_mode(accel_label_7, LV_SCROLLBAR_MODE_OFF); 
+            lv_label_set_long_mode(accel_label_7, LV_LABEL_LONG_CLIP);
+            //倒数第10行
+            accel_label_8 = lv_label_create(text_box_container);
+            lv_label_set_text(accel_label_8, "");
+            lv_obj_set_style_text_color(accel_label_8, current_theme_.text, 0);
+            lv_obj_set_style_text_font(accel_label_8, &font_puhui_20_4, 0);
+            lv_obj_set_width(accel_label_8, width_ * 0.9); // 占满容器宽度
+            lv_obj_align(accel_label_8, LV_ALIGN_TOP_LEFT, 10, 5); // 顶部左侧，由布局自动排列
+            lv_obj_set_scrollbar_mode(accel_label_8, LV_SCROLLBAR_MODE_OFF); 
+            lv_label_set_long_mode(accel_label_8, LV_LABEL_LONG_CLIP);
+            //倒数第11行
+            accel_label_9 = lv_label_create(text_box_container);
+            lv_label_set_text(accel_label_9, "");
+            lv_obj_set_style_text_color(accel_label_9, current_theme_.text, 0);
+            lv_obj_set_style_text_font(accel_label_9, &font_puhui_20_4, 0);
+            lv_obj_set_width(accel_label_9, width_ * 0.9); // 占满容器宽度
+            lv_obj_align(accel_label_9, LV_ALIGN_TOP_LEFT, 10, 5); // 顶部左侧，由布局自动排列
+            lv_obj_set_scrollbar_mode(accel_label_9, LV_SCROLLBAR_MODE_OFF);
+            lv_label_set_long_mode(accel_label_9, LV_LABEL_LONG_CLIP);
+            //倒数第12行 cmd = 12
+            accel_label_10 = lv_label_create(text_box_container);
+            lv_label_set_text(accel_label_10, "");
+            lv_obj_set_style_text_color(accel_label_10, current_theme_.text, 0);
+            lv_obj_set_style_text_font(accel_label_10, &font_puhui_20_4, 0);
+            lv_obj_set_width(accel_label_10, width_ * 0.9); // 占满容器宽度
+            lv_obj_align(accel_label_10, LV_ALIGN_TOP_LEFT, 10, 5); // 顶部左侧，由布局自动排列
+            lv_obj_set_scrollbar_mode(accel_label_10, LV_SCROLLBAR_MODE_OFF);
+            lv_label_set_long_mode(accel_label_10, LV_LABEL_LONG_CLIP);
+
+            //倒数第13行
+            accel_label_11 = lv_label_create(text_box_container);
+            lv_label_set_text(accel_label_11, "");
+            lv_obj_set_style_text_color(accel_label_11, current_theme_.text, 0);
+            lv_obj_set_style_text_font(accel_label_11, &font_puhui_20_4, 0);
+            lv_obj_set_width(accel_label_11, width_ * 0.9); // 占满容器宽度
+            lv_obj_align(accel_label_11, LV_ALIGN_TOP_LEFT, 10, 5); // 顶部左侧，由布局自动排列
+            lv_obj_set_scrollbar_mode(accel_label_11, LV_SCROLLBAR_MODE_OFF);
+            lv_label_set_long_mode(accel_label_11, LV_LABEL_LONG_CLIP);
 
             // 创建SD卡状态显示标签 - 第三行
-            sdcard_label_ = lv_label_create(text_box_container);
-            lv_label_set_text(sdcard_label_, "等待检测SD卡");
-            lv_obj_set_style_text_color(sdcard_label_, current_theme_.text, 0);
-            lv_obj_set_style_text_font(sdcard_label_, &font_puhui_14_1, 0);
-            lv_obj_set_width(sdcard_label_, width_ * 0.9); // 占满容器宽度
-            lv_obj_align(sdcard_label_, LV_ALIGN_TOP_LEFT, 10, 5); // 顶部左侧，由布局自动排列
-
+            Text_display = lv_label_create(text_box_container);
+            lv_label_set_text(Text_display, "");
+            lv_obj_set_style_text_color(Text_display, current_theme_.text, 0);
+            lv_obj_set_style_text_font(Text_display, &font_puhui_14_1, 0);
+            lv_obj_set_width(Text_display, width_ * 0.9); // 占满容器宽度
+            lv_obj_align(Text_display, LV_ALIGN_TOP_LEFT, 10, 5); // 顶部左侧，由布局自动排列
+            lv_obj_set_scrollbar_mode(Text_display, LV_SCROLLBAR_MODE_OFF); 
             // 为容器设置内边距，使三行之间有间隔
-            lv_obj_set_style_pad_row(text_box_container, 1, 0); // 行间距
+            lv_obj_set_style_pad_row(text_box_container, 2, 0); // 行间距
         }
 
     public:
@@ -127,30 +264,144 @@
                 CreateTextBox();
             }
         }
-        
-        // 更新加速度显示
-        void SetAccelerationText(const char* text) {
+        //图片调用方法
+        void ShowSdImage(const char* img_path) {
+            DisplayLockGuard lock(this);
+            if (img_obj_ == nullptr || img_path == nullptr || strlen(img_path) == 0) {
+                ESP_LOGE(TAG, "图片对象未初始化或路径为空");
+                return;
+            }
+
+            // 1. 拼接ESP32 VFS路径（如"E:/text1.bmp" → "/sdcard/text1.bmp"）
+            char esp_path[LV_FS_MAX_PATH_LENGTH] = {0};
+            if (strncmp(img_path, "E:/", 2) != 0) { // 检查路径前缀是否正确
+                ESP_LOGE(TAG, "路径格式错误，需以'E:/'开头: %s", img_path);
+                lv_img_set_src(img_obj_, "E:/no_image.bmp");
+                return;
+            }
+            sprintf(esp_path, "%s/%s", MOUNT_POINT, img_path + 2);
+
+            // 2. 检查文件是否存在（避免LVGL解析时失败）
+            FILE* img_file = fopen(esp_path, "r");
+            if (img_file == NULL) {
+                ESP_LOGE(TAG, "图片文件不存在: %s", esp_path);
+                lv_img_set_src(img_obj_, "E:/no_image.bmp");
+                // 修复：仅在文件打开成功时关闭
+                return;
+            }
+            fclose(img_file); // 文件存在，关闭句柄
+            ESP_LOGI(TAG, "加载SD图片: LVGL路径=%s, VFS路径=%s", img_path, esp_path);
+            lv_img_set_src(img_obj_, img_path);  //oycation
+        }
+        // 显示第二行文字
+        void Settext(const char* text,lv_align_t align, int32_t x_ofs, int32_t y_ofs) {
             DisplayLockGuard lock(this);
             if (accel_label_ != nullptr) {
                 lv_label_set_text(accel_label_, text);
+                lv_obj_align(accel_label_, align, x_ofs, y_ofs); // 顶部左侧
             }
         }
 
-        // 更新温湿度显示
-        void SetAht30SensoryText(float temp, float hum) {
+        void Settext1(const char* text,lv_align_t align, int32_t x_ofs, int32_t y_ofs) {
             DisplayLockGuard lock(this);
             if (temp_hum_data_label_ != nullptr) {
-                char buffer[30];
-                sprintf(buffer, "%.2f°C %.2f%%", temp, hum);
-                lv_label_set_text(temp_hum_data_label_, buffer);
+                lv_label_set_text(temp_hum_data_label_, text);
+                lv_obj_align(temp_hum_data_label_, align, x_ofs, y_ofs); // 顶部左侧
             }
         }
 
-        // 更新sd卡显示
+        void Settext2(const char* text,lv_align_t align, int32_t x_ofs, int32_t y_ofs) {
+            DisplayLockGuard lock(this);
+            if (accel_label_1 != nullptr) {
+                lv_label_set_text(accel_label_1, text);
+                lv_obj_align(accel_label_1, align, x_ofs, y_ofs); // 顶部左侧
+            }
+        }
+
+        void Settext3(const char* text,lv_align_t align, int32_t x_ofs, int32_t y_ofs) {
+            DisplayLockGuard lock(this);
+            if (accel_label_2 != nullptr) {
+                lv_label_set_text(accel_label_2, text);
+                lv_obj_align(accel_label_2, align, x_ofs, y_ofs); // 顶部左侧
+            }
+        }
+
+        void Settext4(const char* text,lv_align_t align, int32_t x_ofs, int32_t y_ofs) {
+            DisplayLockGuard lock(this);
+            if (accel_label_3 != nullptr) {
+                lv_label_set_text(accel_label_3, text);
+                lv_obj_align(accel_label_3, align, x_ofs, y_ofs); // 顶部左侧
+            }
+        }
+
+        void Settext5(const char* text,lv_align_t align, int32_t x_ofs, int32_t y_ofs) {
+            DisplayLockGuard lock(this);
+            if (accel_label_4 != nullptr) {
+                lv_label_set_text(accel_label_4, text);
+                lv_obj_align(accel_label_4, align, x_ofs, y_ofs); // 顶部左侧
+            }
+        }
+
+        void Settext6(const char* text,lv_align_t align, int32_t x_ofs, int32_t y_ofs) {
+            DisplayLockGuard lock(this);
+            if (accel_label_5 != nullptr) {
+                lv_label_set_text(accel_label_5, text);
+                lv_obj_align(accel_label_5, align, x_ofs, y_ofs); // 顶部左侧   
+            }
+        }
+
+        void Settext7(const char* text,lv_align_t align, int32_t x_ofs, int32_t y_ofs) {
+            DisplayLockGuard lock(this);
+            if (accel_label_6 != nullptr) {
+                lv_label_set_text(accel_label_6, text);
+                lv_obj_align(accel_label_6, align, x_ofs, y_ofs); // 顶部左侧   
+            }
+        }   
+        
+        void Settext8(const char* text,lv_align_t align, int32_t x_ofs, int32_t y_ofs) {
+            DisplayLockGuard lock(this);
+            if (accel_label_7 != nullptr) {
+                lv_label_set_text(accel_label_7, text);
+                lv_obj_align(accel_label_7, align, x_ofs, y_ofs); // 顶部左侧   
+            }
+        }   
+        
+        void Settext9(const char* text,lv_align_t align, int32_t x_ofs, int32_t y_ofs) {
+            DisplayLockGuard lock(this);
+            if (accel_label_8 != nullptr) {
+                lv_label_set_text(accel_label_8, text);
+                lv_obj_align(accel_label_8, align, x_ofs, y_ofs); // 顶部左侧   
+            }
+        }
+
+        void Settext10(const char* text,lv_align_t align, int32_t x_ofs, int32_t y_ofs) {
+            DisplayLockGuard lock(this);
+            if (accel_label_9 != nullptr) {
+                lv_label_set_text(accel_label_9, text);
+                lv_obj_align(accel_label_9, align, x_ofs, y_ofs); // 顶部左侧   
+            }
+        }  
+        
+        void Settext11(const char* text,lv_align_t align, int32_t x_ofs, int32_t y_ofs) {
+            DisplayLockGuard lock(this);
+            if (accel_label_10 != nullptr) {
+                lv_label_set_text(accel_label_10, text);
+                lv_obj_align(accel_label_10, align, x_ofs, y_ofs); // 顶部左侧   
+            }
+        }         
+
+        void Settext12(const char* text,lv_align_t align, int32_t x_ofs, int32_t y_ofs) {
+            DisplayLockGuard lock(this);
+            if (accel_label_11 != nullptr) {
+                lv_label_set_text(accel_label_11, text);
+                lv_obj_align(accel_label_11, align, x_ofs, y_ofs); // 顶部左侧   
+            }
+        } 
+        //显示第三行文字
         void SetSDcardText(const char* text) {
             DisplayLockGuard lock(this);
-            if (sdcard_label_ != nullptr) {
-                lv_label_set_text(sdcard_label_, text);
+            if (Text_display != nullptr) {
+                lv_label_set_text(Text_display, text);
             }
         }
 
@@ -168,6 +419,24 @@
             is_visible_ = false;
         }
 
+        // 新增方法：隐藏图片
+        void HideImage() {
+        DisplayLockGuard lock(this);
+        if (img_obj_) {
+            lv_obj_add_flag(img_obj_, LV_OBJ_FLAG_HIDDEN);
+        }
+       }
+
+        // 新增方法：显示图片
+        void ShowImage() {
+            DisplayLockGuard lock(this);
+            if (img_obj_) {
+                lv_obj_clear_flag(img_obj_, LV_OBJ_FLAG_HIDDEN);
+            }
+        }
+
+
+
         // 查询显示状态
         bool IsVisible() const {
             return is_visible_;
@@ -175,7 +444,7 @@
 
     };
 
-    class XINGZHI_CUBE_1_54_TFT_MATRIXBIT_ML307 : public DualNetworkBoard {
+    class XINGZHI_CUBE_1_54_TFT_MATRIXBIT_ML307 : public WifiBoard {
     private:
         i2c_master_bus_handle_t i2c_bus_;
         Button boot_button_;
@@ -188,7 +457,10 @@
         Esp32Camera* camera_;
         Aht30Sensor* aht30_sensor_;
         Sc7a20hSensor* sc7a20h_sensor_;
-        Rp2040* Rp2040_;
+        // Rp2040* Rp2040_;
+        
+        bool is_sd_mounted_ = false;  // SD卡挂载状态：true=已挂载，false=未挂载
+        const char* sd_mount_point_ = MOUNT_POINT;  // 挂载点（如"/sdcard"，需与InitializeSDcardSpi一致）
 
 
         void InitializePowerManager() {
@@ -204,7 +476,7 @@
         }
 
         void InitializePowerSaveTimer() {
-            power_save_timer_ = new PowerSaveTimer(-1, 60, 300);
+            power_save_timer_ = new PowerSaveTimer(-1, -1,-1);
             power_save_timer_->OnEnterSleepMode([this]() {
                 ESP_LOGI(TAG, "Enabling sleep mode");
                 display_->SetChatMessage("system", "");
@@ -227,68 +499,12 @@
 
 
 
-            // 添加一个标志位来记录扫描结果
+        // 添加一个标志位来记录扫描结果
         esp_err_t err;
         bool is_device_41_found = false;
         bool is_device_18_found = false;
-
-
-        // void InitializeI2c() {
-        //     // Initialize I2C peripheral
-        //     i2c_master_bus_config_t i2c_bus_cfg = {
-        //         .i2c_port = (i2c_port_t)1,
-        //         // .i2c_port = I2C_NUM_0,
-        //         .sda_io_num = AUDIO_CODEC_I2C_SDA_PIN,
-        //         .scl_io_num = AUDIO_CODEC_I2C_SCL_PIN,
-        //         .clk_source = I2C_CLK_SRC_DEFAULT,
-        //         .glitch_ignore_cnt = 7,
-        //         .intr_priority = 0,
-        //         .trans_queue_depth = 0,
-        //         .flags = {
-        //             .enable_internal_pullup = 1,
-        //         },
-        //     };
-        //     ESP_ERROR_CHECK(i2c_new_master_bus(&i2c_bus_cfg, &i2c_bus_));
-
-        //     // for (uint8_t addr = 1; addr < 127; addr++) {  //扫描iic驱动地址
-        //     //     err = i2c_master_probe(i2c_bus_, addr, 100);
-        //     //     if (err == ESP_OK) {
-        //     //         ESP_LOGI(TAG, "Device found at address 0x%02X", addr);
-        //     //         if (addr == 0x41) {
-        //     //             is_device_41_found = true;
-        //     //         }
-        //     //         if (addr == 0x18) {
-        //     //             is_device_18_found = true;
-        //     //         }
-        //     //     }
-        //     // }
-
-        //     // 简单的I2C扫描代码片段
-        //     for (uint8_t addr = 1; addr < 127; addr++) {
-        //         esp_err_t err = i2c_master_probe(i2c_bus, addr, 1000);
-        //         if (err == ESP_OK) {
-        //             printf("Found device at 0x%02x\n", addr);
-        //         }
-        //     }
-
-        //     // 初始化AHT30传感器        
-
-        //     // Initialize PCA9557
-
-        //     Rp2040_ = Rp2040::getInstance(i2c_bus_, 0x55);
-        //     //  auto rp2040 = Rp2040::getInstance();
-        //     //  rp2040->SetServoAngle(3, 180);
-        //         // rp2040->SetRGBColor(10, 10, 10);
-
-        //     err = Rp2040_->StartReading(3000);
-        //     if (err != ESP_OK) {
-        //         ESP_LOGE(TAG, "Failed to initialize AHT30 sensor (err=0x%x)", err);
-        //         return;
-        //     }
-
-
-        // }
-
+      
+   
 
         void InitializeI2c() {
             // 初始化I2C外设
@@ -313,14 +529,7 @@
                 return;  // 总线创建失败，直接返回
             }
 
-            // 初始化Rp2040设备（地址0x55）
-            Rp2040_ = Rp2040::getInstance(i2c_bus_, 0x55);
-            if (!Rp2040_) {  // 检查实例是否创建成功
-                ESP_LOGE(TAG, "Failed to get Rp2040 instance");
-                return;
-            }
-
-            // I2C设备扫描（修正变量名，优化超时时间）
+            //I2C设备扫描（修正变量名，优化超时时间）
             bool is_device_41_found = false;
             bool is_device_18_found = false;
             for (uint8_t addr = 1; addr < 127; addr++) {
@@ -336,21 +545,6 @@
                     }
                 }
             }
-
-            
-            // else
-            // {
-            //     ESP_LOGE(TAG, "get Rp2040 instance");
-            //     Rp2040_->io25_set_option();
-
-            // }
-            // 启动Rp2040数据读取
-            err = Rp2040_->StartReading(3000);
-            if (err != ESP_OK) {
-                ESP_LOGE(TAG, "Rp2040 start reading failed (err=0x%x)", err);
-                return;
-            }
-
             ESP_LOGI(TAG, "I2C initialization completed successfully");
         }
 
@@ -365,10 +559,10 @@
                 return;
             }
 
-            // 设置温湿度数据回调
-            aht30_sensor_->SetAht30SensorCallback([this](float temp, float hum) {
-                UpdateAht30SensorDisplay(temp, hum);
-            });
+            // // 设置温湿度数据回调
+            // aht30_sensor_->SetAht30SensorCallback([this](float temp, float hum) {
+            //     UpdateAht30SensorDisplay(temp, hum);
+            // });
 
             // 启动周期性读取（每秒一次）
             err = aht30_sensor_->StartReading(3000);
@@ -376,29 +570,14 @@
                 ESP_LOGE(TAG, "Failed to start periodic readings (err=0x%x)", err);
             }
 
-
-                //      Rp2040_->SetRGBColor(10, 10, 10);
-                //      Rp2040_->ready_IO();  // 修正：通过Rp2040_对象调用 重启问题
-                //      Rp2040_->SetBrightness(100);
-                //      Rp2040_->ReadMultipleRegs(0x01,0x05); //读取数据
-                    //  reciving = Rp2040_->GetTemperature();
-                    //  recivingligh = Rp2040_->GetLightIntensity();
-                    //  Rp2040_->SetPwmOutput(1, 254);
-                        // Rp2040_->SetServoAngle(1, 90);
-                    //  Rp2040_->SetServoAngles({ {2, 90}, {3, 90}, {4, 90}, {5, 90}, {6, 90}, {7, 90}, {8, 90}, {9, 90}, {10, 90}, {11, 90} });
-                    //  ESP_LOGE("", "reciving:%d,recivingligh:%d", reciving,recivingligh); 
-
-                    // 读取0x0C(高8位)和0x0D(低8位)合并为16位值
-                    //  uint16_t combinedValue = Rp2040_->ReadCombinedRegs(0x0C, 0x0D);
-                    //  printf("Combined value: 0x%04X\n", combinedValue);
         }
 
-        // 更新温湿度显示
-        void UpdateAht30SensorDisplay(float temp, float hum) {
-            if (custom_display_) {
-                custom_display_->SetAht30SensoryText(temp, hum);
-            }
-        }
+        // // 更新温湿度显示
+        // void UpdateAht30SensorDisplay(float temp, float hum) {
+        //     if (custom_display_) {
+        //         custom_display_->SetAht30SensoryText(temp, hum);
+        //     }
+        // }
 
         void InitializeSC7A20HSensor() {
             // 初始化传感器
@@ -409,10 +588,10 @@
                 return;
             }
 
-            // 设置加速度数据回调
-            sc7a20h_sensor_->SetAccelerationCallback([this](float x, float y, float z) {
-                UpdateAccelerationDisplay(x, y, z);
-            });
+            // // 设置加速度数据回调
+            // sc7a20h_sensor_->SetAccelerationCallback([this](float x, float y, float z) {
+            //     UpdateAccelerationDisplay(x, y, z);
+            // });
 
             // 启动周期性读取（每100ms一次）
             err = sc7a20h_sensor_->StartReading(3000);
@@ -422,13 +601,13 @@
         }
 
         // 更新加速度显示
-        void UpdateAccelerationDisplay(float x, float y, float z) {
-            if (custom_display_) {
-                char buffer[50];
-                sprintf(buffer, "X:%.2f Y:%.2f Z:%.2f", x, y, z);
-                custom_display_->SetAccelerationText(buffer);
-            }
-        }
+        // void UpdateAccelerationDisplay(float x, float y, float z) {
+        //     if (custom_display_) {
+        //         char buffer[50];
+        //         sprintf(buffer, "X:%.2f Y:%.2f Z:%.2f", x, y, z);
+        //         custom_display_->SetAccelerationText(buffer);
+        //     }
+        // }
 
         void InitializeSpi() {
             spi_bus_config_t buscfg = {};
@@ -442,9 +621,6 @@
         }
 
         void InitializeSDcardSpi() {
-            // 定义挂载点路径
-            // const char* mount_point = "/sdcard";
-            
             // 初始化SPI总线配置
             spi_bus_config_t bus_cnf = {
                 .mosi_io_num = SDCARD_PIN_MOSI,
@@ -454,7 +630,6 @@
                 .quadhd_io_num = -1,
                 .max_transfer_sz = 400000,
             };
-
             // 初始化SPI总线
             esp_err_t err = spi_bus_initialize(SDCARD_SPI_HOST, &bus_cnf, SPI_DMA_CH_AUTO);
             if (err != ESP_OK) {
@@ -468,7 +643,7 @@
                 .gpio_cs = SDCARD_PIN_CS,
                 .gpio_cd = SDSPI_SLOT_NO_CD,
                 .gpio_wp = GPIO_NUM_NC,
-                .gpio_int = GPIO_NUM_NC,
+                .gpio_int = GPIO_NUM_NC,                
             };
             
             // 配置FAT文件系统挂载选项
@@ -476,137 +651,224 @@
                 .format_if_mount_failed = false,
                 .max_files = 5,
                 .allocation_unit_size = 16 * 1024,
+                .disk_status_check_enable = true, // 启用磁盘状态检查
             };
+
             
             // 声明SD卡对象
             sdmmc_card_t* card = NULL;
-            
+
             // 先将宏结果赋值给变量，再取地址
             sdmmc_host_t host = SDSPI_HOST_DEFAULT();
-            err = esp_vfs_fat_sdspi_mount(MOUNT_POINT, &host, &slot_cnf, &mount_cnf, &card);
+            host.max_freq_khz = 20000;  // 设置主机最大频率 
+
+            err = esp_vfs_fat_sdspi_mount(sd_mount_point_, &host, &slot_cnf, &mount_cnf, &card);
             if (err != ESP_OK) {
                 ESP_LOGE(TAG, "SD卡挂载失败: %s", esp_err_to_name(err));
-                custom_display_->SetSDcardText("SD卡挂载失败");
+                // custom_display_->SetSDcardText("SD卡挂载失败");
+                is_sd_mounted_ = false;  // 标记为未挂载
                 return;
-            } else if (err == ESP_OK) {
+            } else {
                 ESP_LOGI(TAG, "SD卡挂载成功");
-                custom_display_->SetSDcardText("SD卡挂载成功");
-            }
-            
-            // 打印SD卡信息
-            // #ifdef CONFIG_SDMMC_USE_CUSTOM_PINS
-            sdmmc_card_print_info(stdout, card);
+                // custom_display_->SetSDcardText("SD卡挂载成功");
+                is_sd_mounted_ = true;  
+                sdmmc_card_print_info(stdout, card);  // 打印SD卡信息
+                
+            }              
 
-        
-            // // Use POSIX and C standard library functions to work with files.
-
-            // // First create a file.
-            // const char *file_hello = MOUNT_POINT"/hello.txt";
-
-            // ESP_LOGI(TAG, "Opening file %s", file_hello);
-            // FILE *f = fopen(file_hello, "w");
-            // if (f == NULL) {
-            //     ESP_LOGE(TAG, "Failed to open file for writing");
-            //     return;
-            // }
-            // fprintf(f, "Hello %s!\n", card->cid.name);
-            // fclose(f);
-            // ESP_LOGI(TAG, "File written");
-
-            // const char *file_foo = MOUNT_POINT"/foo.txt";
-
-            // // Check if destination file exists before renaming
-            // struct stat st;
-            // if (stat(file_foo, &st) == 0) {
-            //     // Delete it if it exists
-            //     unlink(file_foo);
-            // }
-
-            // // Rename original file
-            // ESP_LOGI(TAG, "Renaming file %s to %s", file_hello, file_foo);
-            // if (rename(file_hello, file_foo) != 0) {
-            //     ESP_LOGE(TAG, "Rename failed");
-            //     return;
-            // }
-
-            // // Open renamed file for reading
-            // ESP_LOGI(TAG, "Reading file %s", file_foo);
-            // f = fopen(file_foo, "r");
-            // if (f == NULL) {
-            //     ESP_LOGE(TAG, "Failed to open file for reading");
-            //     return;
-            // }
-
-            // // Read a line from file
-            // char line[64];
-            // fgets(line, sizeof(line), f);
-            // fclose(f);
-
-            // // Strip newline
-            // char *pos = strchr(line, '\n');
-            // if (pos) {
-            //     *pos = '\0';
-            // }
-            // ESP_LOGI(TAG, "Read from file: '%s'", line);
-
-            // // All done, unmount partition and disable SPI peripheral
-            // esp_vfs_fat_sdcard_unmount(MOUNT_POINT, card);
-            // ESP_LOGI(TAG, "Card unmounted");
-
-            // //deinitialize the bus after all devices are removed
-            // spi_bus_free(SDCARD_SPI_HOST);
         }
 
         void InitializeButtons() {
             boot_button_.OnClick([this]() {
                 power_save_timer_->WakeUp();
                 auto& app = Application::GetInstance();
-                if (GetNetworkType() == NetworkType::WIFI) {
+                // if (GetNetworkType() == NetworkType::WIFI) {
                     if (app.GetDeviceState() == kDeviceStateStarting && !WifiStation::GetInstance().IsConnected()) {
-                        // cast to WifiBoard
-                        auto& wifi_board = static_cast<WifiBoard&>(GetCurrentBoard());
-                        wifi_board.ResetWifiConfiguration();
+                        // auto& wifi_board = static_cast<WifiBoard&>(GetCurrentBoard());
+                           ResetWifiConfiguration();
                     }
-                }
+                // }
                 app.ToggleChatState();
             });
 
             boot_button_.OnDoubleClick([this]() {
                 auto& app = Application::GetInstance();
                 if (app.GetDeviceState() == kDeviceStateStarting || app.GetDeviceState() == kDeviceStateWifiConfiguring) {
-                    SwitchNetworkType();   //切换4g和wifi
                 } else {
+                    // 先判断SD卡是否挂载
+                    if (!is_sd_mounted_) {
+                        ESP_LOGE(TAG, "SD卡未挂载，无法显示图片");
+                        custom_display_->SetSDcardText("SD未挂载，无法显示图");
+                        return;
+                    }
+                    // 切换显示/隐藏传感器文本框 + 显示SD图片
                     if (custom_display_->IsVisible()) {
                         custom_display_->Hide();
+                        custom_display_->HideImage();     // 隐藏图片p
                         ESP_LOGI(TAG,"隐藏传感器信息");
                     } else {
                         custom_display_->Show();
+                        custom_display_->ShowImage();     // 显示图片（如果需要） 
                         ESP_LOGI(TAG,"显示传感器信息");
-                    } 
+                        //显示SD卡中的图片（路径需与实际一致）
+                        custom_display_->ShowSdImage("E:/smell1.bmp");  // 假设SD卡根目录有test.bmp
+                    }  
                 }
             });
-
-            // boot_button_.OnDoubleClick([this]() {
-            //     ESP_LOGE(TAG,"双击");
-            //     power_save_timer_->WakeUp();
-            //     auto& app = Application::GetInstance();
-            //     // app.ResetDecoder();
-            //     if (app.GetDeviceState() == kDeviceStateIdle)
-            //     {  
-            //         ESP_LOGE(TAG,"双击事件触发");
-            //         // app.ResetDecoder();
-            //         app.WakeWordInvoke("音量调整到一百，另外你通过摄像机看到了什么");
-            //         vTaskDelay(pdMS_TO_TICKS(500));
-
-            //     }
-            // });
         }
 
+        //oycation
+        void Initializeuart() {
+        // 初始化 UART
+        uart_config_t uart_config = {
+            .baud_rate = 9600,
+            .data_bits = UART_DATA_8_BITS,
+            .parity = UART_PARITY_DISABLE,
+            .stop_bits = UART_STOP_BITS_1,
+            .flow_ctrl = UART_HW_FLOWCTRL_DISABLE,
+        };  
+        UartSender::Initialize(UART_NUM_1, uart_config); //初始化 UART 并创建单例
+        // 获取单例并发送数据
+        UartSender& sender = UartSender::GetInstance(); //获取单例引用 oycation888 通过UartSender::GetInstance()获取实例，调用成员函数(发送函数)
+    }
+
+
+// 打开文件时创建缓存
+static void* lv_fs_sd_open(lv_fs_drv_t* drv, const char* path, lv_fs_mode_t mode) {
+    char esp_path[LV_FS_MAX_PATH_LENGTH] = {0};
+    sprintf(esp_path, "%s/%s", MOUNT_POINT, path + 2);
+
+    const char* c_mode = NULL;
+    if (mode == LV_FS_MODE_RD) c_mode = "rb";
+    else if (mode == LV_FS_MODE_WR) c_mode = "wb";
+    else if (mode == (LV_FS_MODE_RD | LV_FS_MODE_WR)) c_mode = "rb+";
+
+    FILE* file = fopen(esp_path, c_mode);
+    if (!file) {
+        ESP_LOGE(TAG, "Failed to open file: %s", esp_path);
+        return NULL;
+    }
+
+    // 分配带缓存的文件结构
+    sd_file_cache_t* fc = (sd_file_cache_t*)malloc(sizeof(sd_file_cache_t));
+    if (!fc) {
+        fclose(file);
+        ESP_LOGE(TAG, "Failed to allocate file cache");
+        return NULL;
+    }
+
+    fc->fp = file;
+    fc->len = 0;
+    fc->pos = 0;
+
+    return fc;  // 返回带缓存的句柄
+}
+
+// 关闭文件时释放缓存
+static lv_fs_res_t lv_fs_sd_close(lv_fs_drv_t* drv, void* file_p) {
+    sd_file_cache_t* fc = (sd_file_cache_t*)file_p;
+    if (fclose(fc->fp) != 0) {
+        free(fc);
+        return LV_FS_RES_FS_ERR;
+    }
+    free(fc);
+    return LV_FS_RES_OK;
+}
+
+// 带缓存的读取
+static lv_fs_res_t lv_fs_sd_read(lv_fs_drv_t* drv, void* file_p, void* buf, uint32_t btr, uint32_t* br) {
+    sd_file_cache_t* fc = (sd_file_cache_t*)file_p;
+    uint8_t* out = (uint8_t*)buf;
+    size_t remaining = btr;
+    *br = 0;
+
+    while (remaining > 0) {
+        // 缓存为空时，从SD卡读取大块数据
+        if (fc->pos >= fc->len) {
+            size_t read_size = fread(fc->buffer, 1, SD_READ_CACHE_SIZE, fc->fp);
+            if (read_size == 0) {
+                if (feof(fc->fp)) break;
+                if (ferror(fc->fp)) {
+                    ESP_LOGE(TAG, "Failed to read file");
+                    clearerr(fc->fp);
+                    return LV_FS_RES_FS_ERR;
+                }
+                continue;
+            }
+            fc->len = read_size;
+            fc->pos = 0;
+        }
+
+        // 从缓存复制到目标
+        size_t copy_size = MIN(remaining, fc->len - fc->pos);
+        memcpy(out, &fc->buffer[fc->pos], copy_size);
+
+        out += copy_size;
+        fc->pos += copy_size;
+        remaining -= copy_size;
+        *br += copy_size;
+    }
+
+    return LV_FS_RES_OK;
+}
+
+// 4. 写入文件回调（符合 lv_fs_drv_t::write_cb 签名）
+static lv_fs_res_t lv_fs_sd_write(lv_fs_drv_t* drv, void* file_p, const void* buf, uint32_t btw, uint32_t* bw) {
+    FILE* file = (FILE*)file_p;
+    // 调用 fwrite 写入数据，btw=要写的字节数，bw=实际写的字节数
+    size_t written_bytes = fwrite(buf, 1, btw, file);
+    if (bw != NULL) {
+        *bw = written_bytes;
+    }
+
+    if (ferror(file)) {
+        ESP_LOGE(TAG, "Failed to write file");
+        clearerr(file);
+        return LV_FS_RES_FS_ERR;
+    }
+    return LV_FS_RES_OK;
+}
+
+// 其他回调也需要修改，例如 seek
+static lv_fs_res_t lv_fs_sd_seek(lv_fs_drv_t* drv, void* file_p, uint32_t pos, lv_fs_whence_t whence) {
+    sd_file_cache_t* fc = (sd_file_cache_t*)file_p;
+    // 清空缓存，因为 seek 后缓存不再有效
+    fc->len = 0;
+    fc->pos = 0;
+
+    int c_whence = 0;
+    switch (whence) {
+        case LV_FS_SEEK_SET: c_whence = SEEK_SET; break;
+        case LV_FS_SEEK_CUR: c_whence = SEEK_CUR; break;
+        case LV_FS_SEEK_END: c_whence = SEEK_END; break;
+        default: return LV_FS_RES_INV_PARAM;
+    }
+
+    if (fseek(fc->fp, pos, c_whence) != 0) {
+        return LV_FS_RES_FS_ERR;
+    }
+    return LV_FS_RES_OK;
+}
+
+// tell 回调也需要修改
+static lv_fs_res_t lv_fs_sd_tell(lv_fs_drv_t* drv, void* file_p, uint32_t* pos_p) {
+    sd_file_cache_t* fc = (sd_file_cache_t*)file_p;
+    long pos = ftell(fc->fp);
+    if (pos < 0) return LV_FS_RES_FS_ERR;
+    *pos_p = (uint32_t)pos;
+    return LV_FS_RES_OK;
+}
+        //图片显示
         void InitializeSt7789Display() {
+            
+            // 初始化LVGL文件系统：将ESP32的VFS映射到LVGL的"SD:"路径
+            lv_fs_drv_t fs_drv;
+            lv_fs_drv_init(&fs_drv);  // 初始化驱动结构体
+            // vTaskDelay(pdMS_TO_TICKS(1000));
             ESP_LOGD(TAG, "Install panel IO");
             esp_lcd_panel_io_spi_config_t io_config = {};
-            io_config.cs_gpio_num = DISPLAY_CS;
-            io_config.dc_gpio_num = DISPLAY_DC;
+            io_config.cs_gpio_num = DISPLAY_CS; //gpio 21
+            io_config.dc_gpio_num = DISPLAY_DC; //gpio 38
             io_config.spi_mode = 3;
             io_config.pclk_hz = 80 * 1000 * 1000;
             io_config.trans_queue_depth = 10;
@@ -616,7 +878,7 @@
 
             ESP_LOGD(TAG, "Install LCD driver");
             esp_lcd_panel_dev_config_t panel_config = {};
-            panel_config.reset_gpio_num = DISPLAY_RES;
+            panel_config.reset_gpio_num = DISPLAY_RES;  //gpio 21
             panel_config.rgb_ele_order = LCD_RGB_ELEMENT_ORDER_RGB;
             panel_config.bits_per_pixel = 16;
 
@@ -627,8 +889,26 @@
             ESP_ERROR_CHECK(esp_lcd_panel_mirror(panel_, DISPLAY_MIRROR_X, DISPLAY_MIRROR_Y));
             ESP_ERROR_CHECK(esp_lcd_panel_invert_color(panel_, true));
 
+            fs_drv.letter = 'E';      // LVGL访问路径前缀："E:/文件名.bmp"
+            fs_drv.cache_size = 0;    // 不需要缓存（SD 卡读写直接通过 VFS）
+            fs_drv.user_data = NULL;  // 无额外用户数据（如需传挂载点可在这里设置）
+
+
+            // 关键：赋值自定义的适配层回调（替换原来的 lv_fs_xxx）
+            fs_drv.open_cb = lv_fs_sd_open;    // 打开文件
+            fs_drv.read_cb = lv_fs_sd_read;    // 读取文件
+            fs_drv.write_cb = lv_fs_sd_write;  // 写入文件
+            fs_drv.seek_cb = lv_fs_sd_seek;    // 定位指针
+            fs_drv.tell_cb = lv_fs_sd_tell;    // 获取指针位置
+            fs_drv.close_cb = lv_fs_sd_close;  // 关闭文件
+            
+            // 将驱动注册到LVGL
+            lv_fs_drv_register(&fs_drv);            
+            ESP_LOGI(TAG, "LVGL文件系统映射完成，可通过 E:/ 访问SD卡");
+
+
             custom_display_ = new CustomLcdDisplay(panel_io_, panel_, DISPLAY_WIDTH, DISPLAY_HEIGHT, DISPLAY_OFFSET_X, DISPLAY_OFFSET_Y, 
-                DISPLAY_MIRROR_X, DISPLAY_MIRROR_Y, DISPLAY_SWAP_XY);
+            DISPLAY_MIRROR_X, DISPLAY_MIRROR_Y, DISPLAY_SWAP_XY);
             display_ = custom_display_;
         }
 
@@ -643,7 +923,7 @@
 
         }
 
-        void InitializeGpio() {
+        void InitializeGpio() {                 //初始化背光拉高
             gpio_config_t zxc = {};
             zxc.intr_type = GPIO_INTR_DISABLE;
             zxc.mode = GPIO_MODE_OUTPUT;
@@ -687,35 +967,27 @@
             camera_ = new Esp32Camera(config);
         }
 
-        //     void Initializeuart() {
-        //     // 初始化 UART
-        //     uart_config_t uart_config = {
-        //         .baud_rate = 9600,
-        //         .data_bits = UART_DATA_8_BITS,
-        //         .parity = UART_PARITY_DISABLE,
-        //         .stop_bits = UART_STOP_BITS_1,
-        //         .flow_ctrl = UART_HW_FLOWCTRL_DISABLE,
-        //     };
-        //     UartSender::Initialize(UART_NUM_1, uart_config); //初始化 UART 并创建单例
-        // }
-
     public:
         XINGZHI_CUBE_1_54_TFT_MATRIXBIT_ML307() :
-            DualNetworkBoard(ML307_TX_PIN, ML307_RX_PIN, 4096),
-            boot_button_(BOOT_BUTTON_GPIO) {
+        
+            // DualNetworkBoard(ML307_TX_PIN, ML307_RX_PIN, 4096),
+            boot_button_(BOOT_BUTTON_GPIO) { 
+            // vTaskDelay(pdMS_TO_TICKS(3000));  
             InitializeI2c();    
             InitializeGpio();
-            // Initializeuart();
+            Initializeuart();
             InitializePowerManager();
             InitializePowerSaveTimer();
             InitializeAHT30Sensor();  
             InitializeSC7A20HSensor();
-            InitializeSpi();
             InitializeButtons();
-            InitializeSDcardSpi();
+            InitializeSpi();
+            InitializeSDcardSpi();  
+            InitializeSt7789Display();            
+
             InitializeIot();
             InitializeCamera();
-            InitializeSt7789Display();  
+            
         }
 
         virtual AudioCodec* GetAudioCodec() override {
@@ -729,13 +1001,13 @@
                 AUDIO_I2S_GPIO_WS, 
                 AUDIO_I2S_GPIO_DOUT, 
                 AUDIO_I2S_GPIO_DIN,
-                AUDIO_CODEC_PA_PIN, 
+                AUDIO_CODEC_PA_PIN,      //功放输出21dB
                 AUDIO_CODEC_ES8311_ADDR, 
                 AUDIO_INPUT_REFERENCE);
                 return &audio_codec;
         }
 
-        virtual Display* GetDisplay() override {
+            virtual Display* GetDisplay() override {
             return display_;
         }
 
@@ -755,12 +1027,14 @@
             if (!enabled) {
                 power_save_timer_->WakeUp();
             }
-            DualNetworkBoard::SetPowerSaveMode(enabled);
+            WifiBoard::SetPowerSaveMode(enabled);
         }
 
         virtual Camera* GetCamera() override {
             return camera_;
         }
+
+
     };
 
     DECLARE_BOARD(XINGZHI_CUBE_1_54_TFT_MATRIXBIT_ML307);

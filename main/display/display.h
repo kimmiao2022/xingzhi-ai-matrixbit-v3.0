@@ -27,6 +27,26 @@ public:
     virtual void SetIcon(const char* icon);
     virtual void SetPreviewImage(const lv_img_dsc_t* image);
     virtual void SetTheme(const std::string& theme_name);
+    virtual void SetSDcardText(const char* text);
+    virtual void Hide(void);
+    virtual void Show(void);
+    virtual void HideImage(void);
+    virtual void ShowImage(void);    
+    virtual void Settext(const char* text,lv_align_t align, int32_t x_ofs, int32_t y_ofs);
+    virtual void Settext1(const char* text,lv_align_t align, int32_t x_ofs, int32_t y_ofs);
+    virtual void Settext2(const char* text,lv_align_t align, int32_t x_ofs, int32_t y_ofs);
+    virtual void Settext3(const char* text,lv_align_t align, int32_t x_ofs, int32_t y_ofs);
+    virtual void Settext4(const char* text,lv_align_t align, int32_t x_ofs, int32_t y_ofs);  
+    virtual void Settext5(const char* text,lv_align_t align, int32_t x_ofs, int32_t y_ofs);
+    virtual void Settext6(const char* text,lv_align_t align, int32_t x_ofs, int32_t y_ofs); 
+    virtual void Settext7(const char* text,lv_align_t align, int32_t x_ofs, int32_t y_ofs); 
+    virtual void Settext8(const char* text,lv_align_t align, int32_t x_ofs, int32_t y_ofs);
+    virtual void Settext9(const char* text,lv_align_t align, int32_t x_ofs, int32_t y_ofs);  
+    virtual void Settext10(const char* text,lv_align_t align, int32_t x_ofs, int32_t y_ofs); 
+    virtual void Settext11(const char* text,lv_align_t align, int32_t x_ofs, int32_t y_ofs);
+    virtual void Settext12(const char* text,lv_align_t align, int32_t x_ofs, int32_t y_ofs);                                
+    virtual void ShowSdImage(const char* img_path);
+
     virtual std::string GetTheme() { return current_theme_name_; }
     virtual void UpdateStatusBar(bool update_all = false);
 
@@ -37,7 +57,7 @@ protected:
     int width_ = 0;
     int height_ = 0;
     
-    esp_pm_lock_handle_t pm_lock_ = nullptr;
+    esp_pm_lock_handle_t pm_lock_ = nullptr;    
     lv_display_t *display_ = nullptr;
 
     lv_obj_t *emotion_label_ = nullptr;
@@ -49,7 +69,6 @@ protected:
     lv_obj_t* chat_message_label_ = nullptr;
     lv_obj_t* low_battery_popup_ = nullptr;
     lv_obj_t* low_battery_label_ = nullptr;
-    
     const char* battery_icon_ = nullptr;
     const char* network_icon_ = nullptr;
     bool muted_ = false;

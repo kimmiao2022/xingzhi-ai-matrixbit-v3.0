@@ -46,7 +46,35 @@ private:
         });
     }
 
-    void InitializePowerSaveTimer() {
+    // void InitializePowerSaveTimer() {
+    //     rtc_gpio_init(GPIO_NUM_21);
+    //     rtc_gpio_set_direction(GPIO_NUM_21, RTC_GPIO_MODE_OUTPUT_ONLY);
+    //     rtc_gpio_set_level(GPIO_NUM_21, 1);
+
+    //     power_save_timer_ = new PowerSaveTimer(-1, 60, 300);
+    //     power_save_timer_->OnEnterSleepMode([this]() {
+    //         ESP_LOGI(TAG, "Enabling sleep mode");
+    //         display_->SetChatMessage("system", "");
+    //         display_->SetEmotion("sleepy");
+    //         GetBacklight()->SetBrightness(1);
+    //     });
+    //     power_save_timer_->OnExitSleepMode([this]() {
+    //         display_->SetChatMessage("system", "");
+    //         display_->SetEmotion("neutral");
+    //         GetBacklight()->RestoreBrightness();
+    //     });
+    //     power_save_timer_->OnShutdownRequest([this]() {
+    //         ESP_LOGI(TAG, "Shutting down");
+    //         rtc_gpio_set_level(GPIO_NUM_21, 0);
+    //         // 启用保持功能，确保睡眠期间电平不变
+    //         rtc_gpio_hold_en(GPIO_NUM_21);
+    //         esp_lcd_panel_disp_on_off(panel_, false); //关闭显示
+    //         esp_deep_sleep_start();
+    //     });
+    //     power_save_timer_->SetEnabled(true);
+    // }
+
+        void InitializePowerSaveTimer() {
         rtc_gpio_init(GPIO_NUM_21);
         rtc_gpio_set_direction(GPIO_NUM_21, RTC_GPIO_MODE_OUTPUT_ONLY);
         rtc_gpio_set_level(GPIO_NUM_21, 1);

@@ -71,6 +71,54 @@ void Display::SetStatus(const char* status) {
     lv_obj_add_flag(notification_label_, LV_OBJ_FLAG_HIDDEN);
 }
 
+
+void Display::SetSDcardText(const char* text) {
+}
+
+void Display::Hide(void) {
+}
+
+void Display::Show(void) {
+}
+
+void Display::HideImage(void) {
+}
+
+void Display::ShowImage(void) {
+}
+
+void Display::Settext(const char* text,lv_align_t align, int32_t x_ofs, int32_t y_ofs) {
+}
+
+void Display::Settext1(const char* text,lv_align_t align, int32_t x_ofs, int32_t y_ofs) {
+}
+
+void Display::Settext2(const char* text,lv_align_t align, int32_t x_ofs, int32_t y_ofs) {
+}
+
+void Display::Settext3(const char* text,lv_align_t align, int32_t x_ofs, int32_t y_ofs) {
+}
+void Display::Settext4(const char* text,lv_align_t align, int32_t x_ofs, int32_t y_ofs) {
+}
+void Display::Settext5(const char* text,lv_align_t align, int32_t x_ofs, int32_t y_ofs) {
+}
+void Display::Settext6(const char* text,lv_align_t align, int32_t x_ofs, int32_t y_ofs) {
+}
+void Display::Settext7(const char* text,lv_align_t align, int32_t x_ofs, int32_t y_ofs) {
+}
+void Display::Settext8(const char* text,lv_align_t align, int32_t x_ofs, int32_t y_ofs) {
+}
+void Display::Settext9(const char* text,lv_align_t align, int32_t x_ofs, int32_t y_ofs) {
+}
+void Display::Settext10(const char* text,lv_align_t align, int32_t x_ofs, int32_t y_ofs) {
+}
+void Display::Settext11(const char* text,lv_align_t align, int32_t x_ofs, int32_t y_ofs) {
+}
+void Display::Settext12(const char* text,lv_align_t align, int32_t x_ofs, int32_t y_ofs) {
+}
+void Display::ShowSdImage(const char* img_path) {
+}
+
 void Display::ShowNotification(const std::string &notification, int duration_ms) {
     ShowNotification(notification.c_str(), duration_ms);
 }

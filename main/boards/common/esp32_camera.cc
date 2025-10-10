@@ -67,7 +67,7 @@ Esp32Camera::Esp32Camera(const camera_config_t& config) {
     }
 }
 
-Esp32Camera::~Esp32Camera() {
+Esp32Camera::~Esp32Camera() {  //析构函数
     if (fb_) {
         esp_camera_fb_return(fb_);
         fb_ = nullptr;
@@ -183,7 +183,10 @@ bool Esp32Camera::SetVFlip(bool enabled) {
  * @note 函数会等待之前的编码线程完成后再开始新的处理
  * @warning 如果摄像头缓冲区为空或网络连接失败，将返回错误信息
  */
-std::string Esp32Camera::Explain(const std::string& question) {
+
+ //发送图像进行AI分析和解释
+ 
+std::string Esp32Camera::Explain(const std::string& question) {   
     if (explain_url_.empty()) {
         return "{\"success\": false, \"message\": \"Image explain URL or token is not set\"}";
     }

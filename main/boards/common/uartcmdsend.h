@@ -31,6 +31,9 @@ public:
     static std::string ascii_str_part1;
     static std::string ascii_str_part2;
 
+    //发送字符串函数
+    void sendHex(uint8_t hexValue);
+
 
     // 发送数据指令
     void sendNumber(int number);
@@ -54,7 +57,7 @@ public:
     void sendCustomData(const std::vector<uint8_t>& customData);
 
     // 根据指令发送回应数据
-    void sendResponseByCommand(uint8_t cmd,uint8_t cmd4);
+   void sendResponseByCommand(uint8_t cmd, uint8_t cmd4, uint8_t cmd5, const std::string& chinese_utf8 = "");
 
     // 检查并处理接收到的数据
     void checkForReceivedData();

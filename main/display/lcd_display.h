@@ -50,6 +50,25 @@ public:
     ~LcdDisplay();
     virtual void SetEmotion(const char* emotion) override;
     virtual void SetIcon(const char* icon) override;
+    virtual void SetSDcardText(const char* text) override;
+    virtual void Show(void) override;
+    virtual void Hide(void) override;
+    virtual void HideImage(void) override; // Add 
+    virtual void ShowImage(void) override; // Add 
+    virtual void Settext(const char* text,lv_align_t align, int32_t x_ofs, int32_t y_ofs) override;
+    virtual void Settext1(const char* text,lv_align_t align, int32_t x_ofs, int32_t y_ofs) override; 
+    virtual void Settext2(const char* text,lv_align_t align, int32_t x_ofs, int32_t y_ofs) override;
+    virtual void Settext3(const char* text,lv_align_t align, int32_t x_ofs, int32_t y_ofs) override;
+    virtual void Settext4(const char* text,lv_align_t align, int32_t x_ofs, int32_t y_ofs) override; 
+    virtual void Settext5(const char* text,lv_align_t align, int32_t x_ofs, int32_t y_ofs) override; 
+    virtual void Settext6(const char* text,lv_align_t align, int32_t x_ofs, int32_t y_ofs) override; 
+    virtual void Settext7(const char* text,lv_align_t align, int32_t x_ofs, int32_t y_ofs) override; 
+    virtual void Settext8(const char* text,lv_align_t align, int32_t x_ofs, int32_t y_ofs) override;
+    virtual void Settext9(const char* text,lv_align_t align, int32_t x_ofs, int32_t y_ofs) override;  
+    virtual void Settext10(const char* text,lv_align_t align, int32_t x_ofs, int32_t y_ofs) override;
+    virtual void Settext11(const char* text,lv_align_t align, int32_t x_ofs, int32_t y_ofs) override;
+    virtual void Settext12(const char* text,lv_align_t align, int32_t x_ofs, int32_t y_ofs) override;                                   
+    virtual void ShowSdImage(const char* img_path) override; 
     virtual void SetPreviewImage(const lv_img_dsc_t* img_dsc) override;
 #if CONFIG_USE_WECHAT_MESSAGE_STYLE
     virtual void SetChatMessage(const char* role, const char* content) override; 

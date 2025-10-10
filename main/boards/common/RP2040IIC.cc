@@ -84,28 +84,28 @@ void Rp2040::OnReadTimer() {
     //     Servocount = 0;
     // }
 
-    datadisplay = (ReadMultipleRegs(0x15, 0x16) - 5610);
-    ESP_LOGE("TAG","datadisplay = %d", datadisplay);
+    // datadisplay = (ReadMultipleRegs(0x15, 0x16) - 5610);
+    // ESP_LOGE("TAG","datadisplay = %d", datadisplay);
 
-    if(datadisplay<100)
-    {
-        // etPwmOutput(17, 255);
-        // etPwmOutput(18, 0);
+    // if(datadisplay<100)
+    // {
+    //     // etPwmOutput(17, 255);
+    //     // etPwmOutput(18, 0);
 
-        // etPwmOutput(19, 255);
-        // etPwmOutput(22, 0);
-        // SetRGBColor(5, 0, 0); 
-    }
-    else
-    {
+    //     // etPwmOutput(19, 255);
+    //     // etPwmOutput(22, 0);
+    //     // SetRGBColor(5, 0, 0); 
+    // }
+    // else
+    // {
 
-        // etPwmOutput(17, 0);
-        // etPwmOutput(18, 255);
+    //     // etPwmOutput(17, 0);
+    //     // etPwmOutput(18, 255);
 
-        // etPwmOutput(22, 255);
-        // etPwmOutput(19, 0);
-        // SetRGBColor(5, 0, 0);
-    }
+    //     // etPwmOutput(22, 255);
+    //     // etPwmOutput(19, 0);
+    //     // SetRGBColor(5, 0, 0);
+    // }
 
      
 
@@ -204,6 +204,8 @@ uint8_t Rp2040::GetLightIntensity() {
     return ReadReg(0x16);
 }
 
+
+//设置pwm值，传入马达通道和数值
 bool Rp2040::etPwmOutput(uint8_t channel, uint8_t value) {
     if (channel < 0 || channel > 30) {
         printf("PWM通道号超出范围 (0-30)\n");
@@ -213,8 +215,8 @@ bool Rp2040::etPwmOutput(uint8_t channel, uint8_t value) {
         printf("PWM值超出范围 (0-255)\n");
         return false;
     }
-    uint8_t reg_addr = 0x10 + channel;
-    WriteReg(reg_addr, value);
+    uint8_t reg_addr = 0x10 + channel; 
+    WriteReg(reg_addr, value);  //与从机2040通讯
     printf("PWM通道 %d (寄存器0x%02X) 设置为: 0x%02X (%d%%)\n", 
            channel, reg_addr, value, (value * 100) / 255);
     return true;

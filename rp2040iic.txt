@@ -1,0 +1,256 @@
+#include <Wire.h>
+#include <Adafruit_NeoPixel.h>
+#include <DFRobot_Servo.h>  // 舵机控制库
+
+// -------------------------- 硬件定义 --------------------------
+// 核心PWM控制引脚（根据主机指定的引脚）
+#define PIN_PWM17 17  
+#define PIN_PWM18 18  
+#define PIN_PWM19 19  
+#define PIN_PWM22 22 
+
+// PWM寄存器地址映射（与主机保持一致的通道范围0-30）
+#define PWM_START_ADDR 0x10              // 起始地址与主机匹配
+#define PWM_END_ADDR 0x2E                // 结束地址(0x10+30)与主机匹配
+#define PWM_CHANNEL_COUNT (PWM_END_ADDR - PWM_START_ADDR + 1)
+  
+// PWM通道与引脚映射表（仅包含需要控制的引脚）
+// PWM通道与引脚映射表（修改PIN_PWM17到通道23）
+const int pwm_pins[PWM_CHANNEL_COUNT] = {
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0,  // 通道0-9 (未使用)
+  0, 0, 0, 0, 0, 0,              // 通道10-15 (未使用)
+  0,                              // 通道16（原PIN17位置，改为未使用）
+  PIN_PWM18,                      // 通道17 -> PIN18（不变）
+  PIN_PWM17,                              // 通道18 (未使用)
+  PIN_PWM19,                      // 通道19 -> PIN19（不变）
+  0, 0,                           // 通道20-21 (未使用)
+  PIN_PWM22,                      // 通道22 -> PIN22（不变）
+  0,                             // 通道23（0x10+23=0x2D）-> 新映射PIN17
+  0, 0, 0, 0, 0, 0, 0            // 通道24-30 (未使用)
+};  
+
+// 其他硬件定义
+#define ANALOG_PIN  29      
+#define TRIGGER_PIN 25      
+
+// I2C从机及寄存器定义
+#define SLAVE_ID 0x55                   
+#define TRIGGER_REGISTER 0x66           
+#define TRIGGER_VALUE 0x01   
+
+#define LED_CONTROL_R 0x12              
+#define LED_CONTROL_G 0x13              
+#define LED_CONTROL_B 0x14 
+
+#define LIGHT_SENSOR_ADDR 0x15
+
+// 舵机寄存器地址定义
+#define SERVO1_ADDR 0x33    
+#define SERVO2_ADDR 0x3C    
+#define SERVO3_ADDR 0x39    
+#define SERVO4_ADDR 0x34    
+#define SERVO5_ADDR 0x4A    
+#define SERVO6_ADDR 0x4B    
+#define SERVO7_ADDR 0x4C    
+#define SERVO8_ADDR 0x37    
+
+// 创建独立舵机对象
+Servo servo1;
+Servo servo2;
+Servo servo3;
+Servo servo4;
+Servo servo5;
+Servo servo6;
+Servo servo7;
+Servo servo8;
+
+// -------------------------- 全局变量 --------------------------
+volatile uint8_t address = 0;                  
+volatile uint8_t memory_map[256] = {0};        
+int analogValue = 0;
+
+// 舵机角度全局变量
+uint8_t servo1_angle = 0;
+uint8_t servo2_angle = 0;
+uint8_t servo3_angle = 0;
+uint8_t servo4_angle = 0;
+uint8_t servo5_angle = 0;
+uint8_t servo6_angle = 0;
+uint8_t servo7_angle = 0;
+uint8_t servo8_angle = 0;
+
+// 跟踪PWM引脚值
+uint8_t pwm17_value = 0;
+uint8_t pwm18_value = 0;
+uint8_t pwm19_value = 0;
+uint8_t pwm22_value = 0;
+
+// -------------------------- I2C接收函数 --------------------------
+void receiveEvent(int howMany) {
+  static bool isAddress = true;  
+
+  while (Wire.available() > 0) {
+    if (isAddress) {
+      address = Wire.read();
+      Serial.print("接收寄存器地址: 0x");
+      Serial.println(address, HEX);
+      isAddress = false;
+    } else {
+      uint8_t data = Wire.read();
+      memory_map[address] = data;
+      Serial.printf("接收数据: 0x%02X（对应地址0x%02X）\n", data, address);
+
+      // 舵机控制逻辑
+      if (address == SERVO1_ADDR && data <= 180) {
+        servo1_angle = data;
+        Serial.printf("舵机1角度更新为%d度\n", data);
+      } else if (address == SERVO2_ADDR && data <= 180) {
+        servo2_angle = data;
+        Serial.printf("舵机2角度更新为%d度\n", data);
+      } else if (address == SERVO3_ADDR && data <= 180) {
+        servo3_angle = data;
+        Serial.printf("舵机3角度更新为%d度\n", data);
+      } else if (address == SERVO4_ADDR && data <= 180) {
+        servo4_angle = data;
+        Serial.printf("舵机4角度更新为%d度\n", data);
+      } else if (address == SERVO5_ADDR && data <= 180) {
+        servo5_angle = data;
+        Serial.printf("舵机5角度更新为%d度\n", data);
+      } else if (address == SERVO6_ADDR && data <= 180) {
+        servo6_angle = data;
+        Serial.printf("舵机6角度更新为%d度\n", data);
+      } else if (address == SERVO7_ADDR && data <= 180) {
+        servo7_angle = data;
+        Serial.printf("舵机7角度更新为%d度\n", data);
+      } else if (address == SERVO8_ADDR && data <= 180) {
+        servo8_angle = data;
+        Serial.printf("舵机8角度更新为%d度\n", data);
+      }
+
+      // PWM控制逻辑（与主机通道号对应）
+      if (address >= PWM_START_ADDR && address <= PWM_END_ADDR) {
+        int channel = address - PWM_START_ADDR;
+        if (channel >= 0 && channel < PWM_CHANNEL_COUNT && pwm_pins[channel] != 0) {
+          // 映射0-255到PWM占空比
+          analogWrite(pwm_pins[channel], data);
+          Serial.printf("PWM通道%d（地址0x%02X，引脚%d）设置为%d (%d%%)\n", 
+                       channel, address, pwm_pins[channel], data, (data * 100) / 255);
+          
+          // 更新特定引脚的PWM值记录
+          if (pwm_pins[channel] == PIN_PWM17) pwm17_value = data;
+          else if (pwm_pins[channel] == PIN_PWM18) pwm18_value = data;
+          else if (pwm_pins[channel] == PIN_PWM19) pwm19_value = data;
+          else if (pwm_pins[channel] == PIN_PWM22) pwm22_value = data;
+        }
+      }
+
+      // 触发信号控制
+      if (address == TRIGGER_REGISTER && data == TRIGGER_VALUE) {
+        digitalWrite(TRIGGER_PIN, LOW);
+        delay(10);
+        digitalWrite(TRIGGER_PIN, HIGH);
+        Serial.println("触发信号：GPIO25已翻转");
+      }
+
+      isAddress = true;
+    }
+  }
+}
+
+// -------------------------- I2C请求函数 --------------------------
+void requestEvent() {
+  if (address < 256) {
+    if (address == LIGHT_SENSOR_ADDR) {
+      Wire.write(memory_map[LIGHT_SENSOR_ADDR]);
+      Wire.write(memory_map[LIGHT_SENSOR_ADDR + 1]);
+      address = LIGHT_SENSOR_ADDR + 2;
+    } else {
+      Wire.write(memory_map[address]);
+      address++;
+    }
+  } else {
+    Wire.write(0);
+    Serial.println("无效地址，返回0");
+  }
+}
+
+// -------------------------- 初始化函数 --------------------------
+void setup() {
+  // 舵机初始化
+  servo1.attach(3);   // 舵机1绑定引脚3
+  servo2.attach(4);   // 舵机2绑定引脚4
+  servo3.attach(12);  // 舵机3绑定引脚12
+  servo4.attach(9);   // 舵机4绑定引脚9
+  servo5.attach(26);  // 舵机5绑定引脚26
+  servo6.attach(27);  // 舵机6绑定引脚27
+  servo7.attach(28);  // 舵机7绑定引脚28
+  servo8.attach(7);   // 舵机8绑定引脚7
+  Serial.println("舵机初始化完成（独立对象控制）");
+
+  // PWM引脚初始化
+  for (int i = 0; i < PWM_CHANNEL_COUNT; i++) {
+    if (pwm_pins[i] != 0) {  // 只初始化有效的PWM引脚
+      pinMode(pwm_pins[i], OUTPUT);
+      analogWrite(pwm_pins[i], 0);
+      Serial.printf("PWM通道%d初始化，引脚%d\n", i, pwm_pins[i]);
+    }
+  }
+
+  // 其他硬件初始化
+  pinMode(TRIGGER_PIN, OUTPUT);
+
+  // I2C初始化
+  Wire.setSDA(20);
+  Wire.setSCL(21);
+  Wire.begin(SLAVE_ID);
+  Wire.onReceive(receiveEvent);
+  Wire.onRequest(requestEvent);
+
+  Serial.begin(115200);
+  Serial.println("系统初始化完成（含PWM控制引脚17,18,19,22）");
+}
+
+// -------------------------- 主循环 --------------------------
+void loop() {
+  // 读取光敏电阻值
+  analogValue = analogRead(ANALOG_PIN);
+  Serial.print("模拟传感器值: ");
+  Serial.println(analogValue);
+
+  if(analogValue<255)
+  {
+      memory_map[LIGHT_SENSOR_ADDR] = analogValue & 0xFF;
+      memory_map[LIGHT_SENSOR_ADDR + 1] = (analogValue >> 8) & 0xFF;
+  }
+  else
+  {
+     memory_map[LIGHT_SENSOR_ADDR] = 254;
+  }
+
+  
+  // 打印光敏传感器数据
+  Serial.print("光敏传感器低位值 (0x15): 0x");
+  Serial.println(memory_map[LIGHT_SENSOR_ADDR], HEX);
+  Serial.print("光敏传感器高位值 (0x16): 0x");
+  Serial.println(memory_map[LIGHT_SENSOR_ADDR + 1], HEX);
+  
+  // 打印PWM引脚状态
+  Serial.printf("PWM引脚状态 - 17: %d(%d%%), 18: %d(%d%%), 19: %d(%d%%), 22: %d(%d%%)\n",
+               pwm17_value, (pwm17_value*100)/255,
+               pwm18_value, (pwm18_value*100)/255,
+               pwm19_value, (pwm19_value*100)/255,
+               pwm22_value, (pwm22_value*100)/255);
+  Serial.println("------------------------------");
+
+  // 控制舵机
+  servo1.angle(servo1_angle);
+  servo2.angle(servo2_angle);
+  servo3.angle(servo3_angle);
+  servo4.angle(servo4_angle);
+  servo5.angle(servo5_angle);
+  servo6.angle(servo6_angle);
+  servo7.angle(servo7_angle);
+  servo8.angle(servo8_angle);
+  
+  delay(50);
+}

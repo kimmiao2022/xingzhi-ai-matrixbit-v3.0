@@ -60,7 +60,6 @@ public:
         value_ = default_value;
     }
 
-
     inline const std::string& name() const { return name_; }
     inline PropertyType type() const { return type_; }
     inline bool has_default_value() const { return has_default_value_; }
@@ -128,29 +127,11 @@ private:
 
 public:
     PropertyList() = default;
-
-        // 添加查找方法（const版本，用于const对象）
-    const Property* find(const std::string& name) const {
-        for (const auto& prop : properties_) {
-            if (prop.name() == name) {
-                return &prop;
-            }
-        }
-        return nullptr; // 未找到返回空
-    }
-
     PropertyList(const std::vector<Property>& properties) : properties_(properties) {}
-
-    // 新增：支持初始化列表
-    PropertyList(std::initializer_list<Property> init) : properties_(init) {}
-
     void AddProperty(const Property& property) {
-        properties_.push_back(property); 
+        properties_.push_back(property);
     }
 
-
-
-    
     const Property& operator[](const std::string& name) const {
         for (const auto& property : properties_) {
             if (property.name() == name) {
@@ -162,8 +143,6 @@ public:
 
     auto begin() { return properties_.begin(); }
     auto end() { return properties_.end(); }
-    auto end() const { return properties_.end(); }
-
 
     std::vector<std::string> GetRequired() const {
         std::vector<std::string> required;
@@ -277,7 +256,7 @@ public:
         return instance;
     }
 
-    void AddCommonTools();
+    void AddCommonTools();  
     void AddTool(McpTool* tool);
     void AddTool(const std::string& name, const std::string& description, const PropertyList& properties, std::function<ReturnValue(const PropertyList&)> callback);
     void ParseMessage(const cJSON* json);
@@ -295,9 +274,6 @@ private:
     void GetToolsList(int id, const std::string& cursor);
     void DoToolCall(int id, const std::string& tool_name, const cJSON* tool_arguments, int stack_size);
 
-    std::string current_motor_direction; // 新增成员变量
-    std::string current_motor2_direction; // 新增：第二电机方向
-    
     std::vector<McpTool*> tools_;
     std::thread tool_call_thread_;
 };
